@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getApiUrl } from '../config/api';
+import { getApiUrl, fetchWithCredentials } from '../config/api';
 
 // Define interfaces for our data structures
 interface User {
@@ -142,7 +142,7 @@ const DoctorDashboard: React.FC = () => {
     const checkAuthStatus = async () => {
       setIsAuthLoading(true);
       try {
-        const response = await fetch(getApiUrl('/api/doctor/check-auth'));
+        const response = await fetchWithCredentials(getApiUrl('/api/doctor/check-auth'));
         if (!response.ok) {
           // Consider non-200 as not authenticated or error
           setIsAuthenticated(false);
@@ -171,7 +171,7 @@ const DoctorDashboard: React.FC = () => {
       }
       setIsLoadingUsers(true);
       try {
-        const response = await fetch(getApiUrl('/api/doctor/patients'));
+        const response = await fetchWithCredentials(getApiUrl('/api/doctor/patients'));
         if (!response.ok) {
           if (response.status === 401) setIsAuthenticated(false); // Session expired or invalid
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -197,7 +197,7 @@ const DoctorDashboard: React.FC = () => {
         setUserAssessments([]); 
         try {
           console.log("Fetching assessments for user:", selectedUser.id);
-          const response = await fetch(getApiUrl(`/api/doctor/patient/${selectedUser.id}/assessments`));
+          const response = await fetchWithCredentials(getApiUrl(`/api/doctor/patient/${selectedUser.id}/assessments`));
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           const data: ServerAssessment[] = await response.json();
           
@@ -301,7 +301,7 @@ const DoctorDashboard: React.FC = () => {
   const handleDeleteAssessment = async (assessmentId: string) => {
     if (window.confirm('Are you sure you want to delete this assessment? This action cannot be undone.')) {
       try {
-        const response = await fetch(getApiUrl(`/api/doctor/assessment/${assessmentId}`), { method: 'DELETE' });
+        const response = await fetchWithCredentials(getApiUrl(`/api/doctor/assessment/${assessmentId}`), { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to delete assessment.');
@@ -318,7 +318,7 @@ const DoctorDashboard: React.FC = () => {
   const handleDeleteUser = async (userId: string) => {
     if (window.confirm('Are you sure you want to delete this entire user and all their assessments? This action cannot be undone.')) {
       try {
-        const response = await fetch(getApiUrl(`/api/doctor/user/${userId}`), { method: 'DELETE' });
+        const response = await fetchWithCredentials(getApiUrl(`/api/doctor/user/${userId}`), { method: 'DELETE' });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to delete user.');
@@ -581,7 +581,7 @@ const DoctorDashboard: React.FC = () => {
     e.preventDefault();
     setLoginError('');
     try {
-      const response = await fetch(getApiUrl('/api/doctor/login'), {
+      const response = await fetchWithCredentials(getApiUrl('/api/doctor/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),
@@ -603,7 +603,7 @@ const DoctorDashboard: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      const response = await fetch(getApiUrl('/api/doctor/logout'), { method: 'POST' });
+      const response = await fetchWithCredentials(getApiUrl('/api/doctor/logout'), { method: 'POST' });
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Logout failed:', errorData.error || 'Server error');
