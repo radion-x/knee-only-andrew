@@ -48,8 +48,9 @@ if (!mongoUri) {
 }
 
 // --- CORS CONFIGURATION ---
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+// Support both CLIENT_ORIGIN (legacy) and ALLOWED_ORIGINS (new)
+const allowedOrigins = (process.env.CLIENT_ORIGIN || process.env.ALLOWED_ORIGINS)
+  ? (process.env.CLIENT_ORIGIN || process.env.ALLOWED_ORIGINS).split(',').map(origin => origin.trim())
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
@@ -57,16 +58,15 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    // In development, allow all origins
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
       console.warn(`CORS blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true, // Allow cookies to be sent cross-origin
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  credentials: true // Allow cookies to be sent cross-origin
 }));
 
 app.use(express.json({ limit: '5mb' }));
