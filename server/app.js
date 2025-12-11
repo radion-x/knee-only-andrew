@@ -29,6 +29,14 @@ const tempUploadDir = path.join(baseUploadsDir, 'temp'); // Temporary directory 
 
 const port = process.env.SERVER_PORT || 3001;
 
+// --- TRUST PROXY CONFIGURATION ---
+// CRITICAL: Enable trust proxy for Coolify/Traefik deployments
+// This allows Express to correctly read X-Forwarded-* headers
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', true);
+  console.log('Trust proxy enabled for reverse proxy deployment');
+}
+
 // --- DATABASE & MIDDLEWARE ---
 const mongoUri = process.env.MONGODB_URI;
 if (!mongoUri) {
@@ -39,18 +47,52 @@ if (!mongoUri) {
     .catch(err => console.error('MongoDB connection error:', err));
 }
 
-app.use(cors());
+// --- CORS CONFIGURATION ---
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173', 'http://localhost:3000'];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Allow cookies to be sent cross-origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json({ limit: '5mb' }));
-app.use(session({
+
+// --- SESSION CONFIGURATION ---
+const sessionConfig = {
   secret: process.env.SESSION_SECRET || 'fallback_secret_key_please_change',
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: false, // Set to false since we're behind nginx proxy
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+    secure: process.env.NODE_ENV === 'production', // HTTPS only in production
   }
-}));
+};
+
+// Add proxy and domain settings for production
+if (process.env.NODE_ENV === 'production') {
+  sessionConfig.proxy = true; // Trust the reverse proxy
+  if (process.env.COOKIE_DOMAIN) {
+    sessionConfig.cookie.domain = process.env.COOKIE_DOMAIN;
+  }
+}
+
+app.use(session(sessionConfig));
 
 // --- STATIC FILE SERVING ---
 // Serve files from the session-specific directories

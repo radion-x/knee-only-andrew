@@ -44,5 +44,8 @@ Thumbs.db
 # Uploads
 server/public/uploads/
 
+# Symbolic links
+knee_hip
+
 # Git
 .git/
