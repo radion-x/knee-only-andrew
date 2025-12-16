@@ -48,27 +48,37 @@ if (!mongoUri) {
 }
 
 // --- CORS CONFIGURATION ---
-// Support both CLIENT_ORIGIN (legacy) and ALLOWED_ORIGINS (new)
-const allowedOrigins = (process.env.CLIENT_ORIGIN || process.env.ALLOWED_ORIGINS)
-  ? (process.env.CLIENT_ORIGIN || process.env.ALLOWED_ORIGINS).split(',').map(origin => origin.trim())
-  : ['http://localhost:5173', 'http://localhost:3000'];
+const allowedOrigins = (process.env.ALLOWED_ORIGINS)
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
+  : ['http://localhost:5173'];
+
+console.log('CORS Configuration:');
+console.log('  Allowed Origins:', allowedOrigins);
+console.log('  NODE_ENV:', process.env.NODE_ENV);
 
 app.use(cors({
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
-    if (!origin) return callback(null, true);
+    console.log(`CORS request from origin: ${origin}`);
     
-    // In development, allow all origins
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+    // Allow non-browser requests (mobile apps, Postman, etc.)
+    if (!origin) {
+      console.log('  -> Allowing request with no origin header');
+      return callback(null, true);
+    }
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      console.log(`  -> Origin ${origin} is in allowed list - ALLOWING`);
+      callback(null, true);
+    } else if (process.env.NODE_ENV !== 'production') {
+      console.log(`  -> Non-production mode - ALLOWING ${origin}`);
       callback(null, true);
     } else {
-      console.warn(`CORS blocked origin: ${origin}`);
+      console.warn(`  -> CORS BLOCKED: ${origin} not in allowed origins`);
       callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true // Allow cookies to be sent cross-origin
+  credentials: true // CRITICAL: Allow cookies cross-origin
 }));
-
 app.use(express.json({ limit: '5mb' }));
 
 // --- SESSION CONFIGURATION ---
@@ -78,19 +88,26 @@ const sessionConfig = {
   saveUninitialized: false,
   cookie: {
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     secure: process.env.NODE_ENV === 'production', // HTTPS only in production
   }
 };
 
-// Add proxy and domain settings for production
 if (process.env.NODE_ENV === 'production') {
-  sessionConfig.proxy = true; // Trust the reverse proxy
+  sessionConfig.proxy = true; // Trust reverse proxy
   if (process.env.COOKIE_DOMAIN) {
     sessionConfig.cookie.domain = process.env.COOKIE_DOMAIN;
+    console.log(`Cookie domain set to: ${process.env.COOKIE_DOMAIN}`);
   }
 }
+
+console.log('Session Configuration:');
+console.log('  sameSite:', sessionConfig.cookie.sameSite);
+console.log('  secure:', sessionConfig.cookie.secure);
+console.log('  domain:', sessionConfig.cookie.domain);
+console.log('  httpOnly:', sessionConfig.cookie.httpOnly);
+console.log('  proxy:', sessionConfig.proxy);
 
 app.use(session(sessionConfig));
 
